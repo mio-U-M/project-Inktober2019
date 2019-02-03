@@ -1,0 +1,56 @@
+#
+# @title Build and Commit
+# @since 2018/08/07
+# @author kokubu-yumiko
+#
+
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/node:8.11-browsers
+    working_directory: ~/app
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "0d:e4:80:75:1e:df:1a:b4:bd:a8:c5:cc:80:9f:92:52"
+      - run:
+          name: "git config"
+          command: |
+            git config --global user.email "circleci@example.com"
+            git config --global user.name "circleci"
+            git config --global push.default simple
+      - run:
+          name: "setup branch"
+          command: |
+            git fetch origin
+            git checkout testsite
+            git merge $CIRCLE_BRANCH --no-ff -m 'CI: merge $CIRCLE_BRANCH'
+      - run:
+          name: "yarn install"
+          command: "yarn install"
+      - run:
+          name: "build"
+          command: "yarn run build"
+      - run:
+          name: "git add"
+          command: "git add ./public"
+      - run:
+          name: "git commit"
+          command: |
+            set +o pipefail
+            git commit -m 'CI: build' | true
+      - run:
+          name: "git push"
+          command: "git push origin testsite"
+
+workflows:
+  version: 2
+  build_deploy:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only:
+                - master
