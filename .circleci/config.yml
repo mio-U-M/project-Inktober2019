@@ -22,12 +22,6 @@ jobs:
             git config --global user.name "circleci"
             git config --global push.default simple
       - run:
-          name: "setup branch"
-          command: |
-            git fetch origin
-            git checkout testsite
-            git merge $CIRCLE_BRANCH --no-ff -m 'CI: merge $CIRCLE_BRANCH'
-      - run:
           name: "yarn install"
           command: "yarn install"
       - run:
@@ -43,7 +37,7 @@ jobs:
             git commit -m 'CI: build' | true
       - run:
           name: "git push"
-          command: "git push origin testsite"
+          command: "git push origin master"
 
 workflows:
   version: 2
