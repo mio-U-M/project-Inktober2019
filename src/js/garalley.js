@@ -15,11 +15,11 @@ const MINIMUM_IMAGECONTANAR_LENGTH = 4;
 const CONTAINER_TURNING_POINT = 3;
 const CONTAINER_COUNT = 9;
 
-class GalleryController extends EventEmitter2 {
-    constructor() {
+export default class GalleryController extends EventEmitter2 {
+    constructor(canvas) {
         super();
 
-        this.canvas = null;
+        this.canvas = canvas;
         this.application = null;
 
         this.loader = null;
@@ -383,10 +383,6 @@ class GalleryController extends EventEmitter2 {
         return this.application !== null;
     }
 
-    setCanvas(canvas) {
-        this.canvas = canvas;
-    }
-
     setImageData(images) {
         this.clearImageData();
 
@@ -419,6 +415,3 @@ class GalleryController extends EventEmitter2 {
         this.displayedImageSprites.length = 0;
     }
 }
-
-const gallery = new GalleryController();
-export default gallery;
