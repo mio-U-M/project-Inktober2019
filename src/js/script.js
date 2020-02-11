@@ -1,10 +1,14 @@
-import { BASE_DIR } from "../constants.yml";
-import GalleryController from "../js/garalley";
+import GalleryController from "./garalley.js";
 
-// load
+// load start
 
 // garalley setting
 const view = document.querySelector(".js-gareley");
 const garalleyView = new GalleryController(view);
+
+garalleyView.on("stageStandBy", () => {
+    // loadingを開ける処理
+});
+garalleyView.init();
 
 // menu set

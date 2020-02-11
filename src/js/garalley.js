@@ -1,10 +1,10 @@
 import * as PIXI from "pixi.js";
+import { BASE_DIR } from "../constants.yml";
 import EventEmitter2 from "eventemitter2";
 import { max } from "lodash";
 import { TweenMax, Sine } from "gsap";
-import isPrime from "lib/isPrime.js";
-import createDivisor from "lib/createDivisor.js";
-import clipImage from "lib/clipImage.js";
+import isPrime from "./lib/isPrime.js";
+import createDivisor from "./lib/createDivisor.js";
 
 const IMAGE_PADDING = 10;
 const IMAGE_LIST_SCALE = 0.7;
@@ -61,7 +61,7 @@ export default class GalleryController extends EventEmitter2 {
             view: this.canvas,
             resolution: window.devicePixelRatio || 1,
             autoResize: true,
-            backgroundColor: "0x0082ca"
+            backgroundColor: "0x000000"
         });
 
         this.resizeFnc = () => {
@@ -82,32 +82,43 @@ export default class GalleryController extends EventEmitter2 {
 
         // アセット読み込み
         await this.loadAssets(this.totalImageCount < 1);
-        this.renderAssets(this.totalImageCount < 1);
+        // this.renderAssets(this.totalImageCount < 1);
 
-        // 座標設定
-        this.setEndpoint();
+        // // 座標設定
+        // this.setEndpoint();
         this.emit("stageStandBy");
     }
 
     loadAssets() {
-        this.loader = PIXI.loader;
+        this.loader = new PIXI.Loader();
 
-        return new Promise(resolve => {
-            this.loader.reset();
-            return Promise.all(
-                Object.values(this.imageDatas).map(element =>
-                    clipImage(element, IMAGE_SPRITE_SIZE)
-                )
-            ).then(result => {
-                result.forEach((img, i) => {
-                    if (img) this.loader.add(`solid-${i}`, img);
-                });
-                this.loader.load((loader, resources) => {
-                    this.setLoadedImageData(Object.values(resources));
-                    resolve();
-                });
-            });
+        // spritesheet load
+        this.loader.add(
+            "spritesheet",
+            `${BASE_DIR}img/garelly/thumb/spritesheet.json`
+        );
+        this.loader.load((loader, resources) => {
+            console.log(resources.spritesheet.data);
+
+            this.setLoadedImageData(Object.values(resources));
         });
+
+        // return new Promise(resolve => {
+        //     this.loader.reset();
+        //     return Promise.all(
+        //         Object.values(this.imageDatas).map(element =>
+        //             clipImage(element, IMAGE_SPRITE_SIZE)
+        //         )
+        //     ).then(result => {
+        //         result.forEach((img, i) => {
+        //             if (img) this.loader.add(`solid-${i}`, img);
+        //         });
+        //         this.loader.load((loader, resources) => {
+        //             this.setLoadedImageData(Object.values(resources));
+        //             resolve();
+        //         });
+        //     });
+        // });
     }
 
     renderAssets(isBlank = false) {
@@ -116,7 +127,7 @@ export default class GalleryController extends EventEmitter2 {
 
         let containerX = 0;
         let containerY = 0;
-        // 折り返しポイントの計算（０件の場合はミニマムの値を設定
+        // 折り返しポイントの計算（０件の場合はミニマムの値を設定）
         this.turningPoint = isBlank
             ? MINIMUM_IMAGECONTANAR_LENGTH
             : this.checkTotalCount(this.totalImageCount);
@@ -124,96 +135,95 @@ export default class GalleryController extends EventEmitter2 {
         if (isBlank) {
             this.displayImageCount = Math.pow(MINIMUM_IMAGECONTANAR_LENGTH, 2);
         }
+
+        // メインとなるコンテナの作成
+        // 画像を詰めるコンテナを詰める作業
+        const mainContainer = new PIXI.Container();
         // 画像を詰めるコンテナの位置配置
         let singleX = 0;
         let singleY = 0;
 
-        for (let index = 1; index < CONTAINER_COUNT + 1; index++) {
-            // 初期化
-            singleX = 0;
-            singleY = 0;
-            // 画像を詰めるコンテナを詰める作業
-            const container = new PIXI.Container();
+        for (let i = 0; i < this.displayImageCount; i++) {
+            const imageIndex = i % this.loadedImagesData.length;
+            const imageSprite = new PIXI.Sprite(
+                this.loadedImagesData[imageIndex].texture
+            );
 
-            for (let i = 0; i < this.displayImageCount; i++) {
-                const imageIndex = i % this.loadedImagesData.length;
-                const imageSprite = new PIXI.Sprite(
-                    this.loadedImagesData[imageIndex].texture
-                );
+            // 位置計算
+            if (i > 0) {
+                i % this.turningPoint !== 0
+                    ? (singleX +=
+                          imageSprite.width * IMAGE_LIST_SCALE + IMAGE_PADDING)
+                    : (singleX = 0);
+                if (i % this.turningPoint === 0)
+                    singleY +=
+                        imageSprite.height * IMAGE_LIST_SCALE + IMAGE_PADDING;
+            }
+            imageSprite.position.x = singleX;
+            imageSprite.position.y = singleY;
+            imageSprite.anchor.x = 0.5;
+            imageSprite.anchor.y = 0.5;
+            imageSprite.scale.x = IMAGE_LIST_SCALE;
+            imageSprite.scale.y = IMAGE_LIST_SCALE;
 
-                // 位置計算
-                if (i > 0) {
-                    i % this.turningPoint !== 0
-                        ? (singleX +=
-                              imageSprite.width * IMAGE_LIST_SCALE +
-                              IMAGE_PADDING)
-                        : (singleX = 0);
-                    if (i % this.turningPoint === 0)
-                        singleY +=
-                            imageSprite.height * IMAGE_LIST_SCALE +
-                            IMAGE_PADDING;
-                }
-                imageSprite.position.x = singleX;
-                imageSprite.position.y = singleY;
-                imageSprite.anchor.x = 0.5;
-                imageSprite.anchor.y = 0.5;
-                imageSprite.scale.x = IMAGE_LIST_SCALE;
-                imageSprite.scale.y = IMAGE_LIST_SCALE;
-
-                // 画像が存在する場合は画像にクリックイベントを仕込む
-                if (!isBlank) {
-                    // 画像にイベントを付与
-                    imageSprite.interactive = true;
-                    imageSprite.buttonMode = true;
-                    imageSprite.cursor = "pointer";
-                    // クリック周り
-                    imageSprite.on("mousedown", () => {
-                        this.isClickImageSplite = true;
+            // 画像が存在する場合は画像にクリックイベントを仕込む
+            if (!isBlank) {
+                // 画像にイベントを付与
+                imageSprite.interactive = true;
+                imageSprite.buttonMode = true;
+                imageSprite.cursor = "pointer";
+                // クリック周り
+                imageSprite.on("mousedown", () => {
+                    this.isClickImageSplite = true;
+                });
+                imageSprite.on("mouseup", () => {
+                    if (this.isClickImageSplite)
+                        this.emit(
+                            "openModal",
+                            Object.keys(this.imageDatas)[imageIndex]
+                        );
+                });
+                // マウスオーバー周り
+                imageSprite.on("mouseover", () => {
+                    TweenMax.to(imageSprite.scale, 0.3, {
+                        x: IMAGE_LIST_SCALE - 0.05,
+                        y: IMAGE_LIST_SCALE - 0.05,
+                        ease: Sine.easeOut
                     });
-                    imageSprite.on("mouseup", () => {
-                        if (this.isClickImageSplite)
-                            this.emit(
-                                "openModal",
-                                Object.keys(this.imageDatas)[imageIndex]
-                            );
+                });
+                imageSprite.on("mouseout", () => {
+                    TweenMax.to(imageSprite.scale, 0.3, {
+                        x: IMAGE_LIST_SCALE,
+                        y: IMAGE_LIST_SCALE,
+                        ease: Sine.easeOut
                     });
-                    // マウスオーバー周り
-                    imageSprite.on("mouseover", () => {
-                        TweenMax.to(imageSprite.scale, 0.3, {
-                            x: IMAGE_LIST_SCALE - 0.05,
-                            y: IMAGE_LIST_SCALE - 0.05,
-                            ease: Sine.easeOut
-                        });
-                    });
-                    imageSprite.on("mouseout", () => {
-                        TweenMax.to(imageSprite.scale, 0.3, {
-                            x: IMAGE_LIST_SCALE,
-                            y: IMAGE_LIST_SCALE,
-                            ease: Sine.easeOut
-                        });
-                    });
-                }
-
-                container.addChild(imageSprite);
-                // 表示したスプライトを格納
-                this.setDisplayedImageSprites(imageSprite);
+                });
             }
 
+            mainContainer.addChild(imageSprite);
+            // 表示したスプライトを格納
+            this.setDisplayedImageSprites(imageSprite);
+        }
+
+        for (let index = 1; index < CONTAINER_COUNT + 1; index++) {
             // 大元コンテナに配置する作業
-            container.position.x = containerX;
-            container.position.y = containerY;
+            const displayContainer = new PIXI.Container();
+            displayContainer.addChild(mainContainer);
+
+            displayContainer.position.x = containerX;
+            displayContainer.position.y = containerY;
             index % CONTAINER_TURNING_POINT !== 0
-                ? (containerX += container.width + IMAGE_PADDING)
+                ? (containerX += mainContainer.width + IMAGE_PADDING)
                 : (containerX = 0);
             if (index % CONTAINER_TURNING_POINT === 0)
-                containerY += container.height + IMAGE_PADDING;
+                containerY += mainContainer.height + IMAGE_PADDING;
 
-            this.wrapperContainer.addChild(container);
+            this.wrapperContainer.addChild(displayContainer);
 
             // リピートのために戻す量を設定
             if (index === 1) {
-                this.backPosition.x = -container.width;
-                this.backPosition.y = -container.height;
+                this.backPosition.x = -mainContainer.width;
+                this.backPosition.y = -mainContainer.height;
             }
         }
 
@@ -383,12 +393,12 @@ export default class GalleryController extends EventEmitter2 {
         return this.application !== null;
     }
 
-    setImageData(images) {
-        this.clearImageData();
+    // setImageData(images) {
+    //     this.clearImageData();
 
-        this.imageDatas = { ...images };
-        this.totalImageCount = Object.values(this.imageDatas).length;
-    }
+    //     this.imageDatas = { ...images };
+    //     this.totalImageCount = Object.values(this.imageDatas).length;
+    // }
 
     clearImageData() {
         this.imageDatas = null;
