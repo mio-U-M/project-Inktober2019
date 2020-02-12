@@ -1,25 +1,24 @@
 import * as PIXI from "pixi.js";
+import { BASE_DIR } from "../constants.yml";
 import EventEmitter2 from "eventemitter2";
 import { max } from "lodash";
 import { TweenMax, Sine } from "gsap";
-import isPrime from "lib/isPrime.js";
-import createDivisor from "lib/createDivisor.js";
-import clipImage from "lib/clipImage.js";
+import isPrime from "./lib/isPrime.js";
+import createDivisor from "./lib/createDivisor.js";
 
-const IMAGE_PADDING = 10;
-const IMAGE_LIST_SCALE = 0.7;
-const IMAGE_SPRITE_SIZE = 260;
+const IMAGE_PADDING = 20;
+const IMAGE_LIST_SCALE = 0.9;
 
 const MINIMUM_IMAGECONTANAR_LENGTH = 4;
 
 const CONTAINER_TURNING_POINT = 3;
 const CONTAINER_COUNT = 9;
 
-class GalleryController extends EventEmitter2 {
-    constructor() {
+export default class GalleryController extends EventEmitter2 {
+    constructor(canvas) {
         super();
 
-        this.canvas = null;
+        this.canvas = canvas;
         this.application = null;
 
         this.loader = null;
@@ -32,7 +31,7 @@ class GalleryController extends EventEmitter2 {
         this.imageDatas = {};
         this.totalImageCount = 0;
         // 読み込み完了＆未表示の画像
-        this.loadedImagesData = [];
+        this.resourcesData = null;
         // 表示済みの画像（スプライト）
         this.displayedImageSprites = [];
 
@@ -61,7 +60,7 @@ class GalleryController extends EventEmitter2 {
             view: this.canvas,
             resolution: window.devicePixelRatio || 1,
             autoResize: true,
-            backgroundColor: "0x0082ca"
+            backgroundColor: "0x000000"
         });
 
         this.resizeFnc = () => {
@@ -81,8 +80,8 @@ class GalleryController extends EventEmitter2 {
         }
 
         // アセット読み込み
-        await this.loadAssets(this.totalImageCount < 1);
-        this.renderAssets(this.totalImageCount < 1);
+        await this.loadAssets();
+        this.renderAssets();
 
         // 座標設定
         this.setEndpoint();
@@ -90,22 +89,20 @@ class GalleryController extends EventEmitter2 {
     }
 
     loadAssets() {
-        this.loader = PIXI.loader;
+        this.loader = new PIXI.Loader();
 
+        // spritesheet load
         return new Promise(resolve => {
-            this.loader.reset();
-            return Promise.all(
-                Object.values(this.imageDatas).map(element =>
-                    clipImage(element, IMAGE_SPRITE_SIZE)
-                )
-            ).then(result => {
-                result.forEach((img, i) => {
-                    if (img) this.loader.add(`solid-${i}`, img);
-                });
-                this.loader.load((loader, resources) => {
-                    this.setLoadedImageData(Object.values(resources));
-                    resolve();
-                });
+            this.loader.add(
+                "spritesheet",
+                `${BASE_DIR}img/garelly/thumb/spritesheet.json`
+            );
+            this.loader.load((loader, resources) => {
+                this.setResources(resources);
+                this.setTotalImageCount(
+                    Object.keys(resources.spritesheet.data.frames).length
+                );
+                resolve();
             });
         });
     }
@@ -116,14 +113,10 @@ class GalleryController extends EventEmitter2 {
 
         let containerX = 0;
         let containerY = 0;
-        // 折り返しポイントの計算（０件の場合はミニマムの値を設定
-        this.turningPoint = isBlank
-            ? MINIMUM_IMAGECONTANAR_LENGTH
-            : this.checkTotalCount(this.totalImageCount);
-        // また、０件の時はdisplayImageCountをあらかじめ設定
-        if (isBlank) {
-            this.displayImageCount = Math.pow(MINIMUM_IMAGECONTANAR_LENGTH, 2);
-        }
+        // 折り返しポイントの計算
+        this.turningPoint = this.checkTotalCount(this.totalImageCount);
+
+        // 画像を詰めるコンテナを詰める作業
         // 画像を詰めるコンテナの位置配置
         let singleX = 0;
         let singleY = 0;
@@ -136,9 +129,11 @@ class GalleryController extends EventEmitter2 {
             const container = new PIXI.Container();
 
             for (let i = 0; i < this.displayImageCount; i++) {
-                const imageIndex = i % this.loadedImagesData.length;
+                const imageIndex = i % this.totalImageCount;
                 const imageSprite = new PIXI.Sprite(
-                    this.loadedImagesData[imageIndex].texture
+                    this.loader.resources.spritesheet.textures[
+                        `thumb-day${imageIndex + 1}.jpg`
+                    ]
                 );
 
                 // 位置計算
@@ -160,46 +155,42 @@ class GalleryController extends EventEmitter2 {
                 imageSprite.scale.x = IMAGE_LIST_SCALE;
                 imageSprite.scale.y = IMAGE_LIST_SCALE;
 
-                // 画像が存在する場合は画像にクリックイベントを仕込む
-                if (!isBlank) {
-                    // 画像にイベントを付与
-                    imageSprite.interactive = true;
-                    imageSprite.buttonMode = true;
-                    imageSprite.cursor = "pointer";
-                    // クリック周り
-                    imageSprite.on("mousedown", () => {
-                        this.isClickImageSplite = true;
-                    });
-                    imageSprite.on("mouseup", () => {
-                        if (this.isClickImageSplite)
-                            this.emit(
-                                "openModal",
-                                Object.keys(this.imageDatas)[imageIndex]
-                            );
-                    });
-                    // マウスオーバー周り
-                    imageSprite.on("mouseover", () => {
-                        TweenMax.to(imageSprite.scale, 0.3, {
-                            x: IMAGE_LIST_SCALE - 0.05,
-                            y: IMAGE_LIST_SCALE - 0.05,
-                            ease: Sine.easeOut
-                        });
-                    });
-                    imageSprite.on("mouseout", () => {
-                        TweenMax.to(imageSprite.scale, 0.3, {
-                            x: IMAGE_LIST_SCALE,
-                            y: IMAGE_LIST_SCALE,
-                            ease: Sine.easeOut
-                        });
-                    });
-                }
+                // 画像にイベントを付与
+                imageSprite.interactive = true;
+                imageSprite.buttonMode = true;
+                imageSprite.cursor = "pointer";
+                // クリック周り
+                imageSprite.on("mousedown", () => {
+                    this.isClickImageSplite = true;
+                });
+                imageSprite.on("mouseup", () => {
+                    if (this.isClickImageSplite)
+                        this.emit(
+                            "openModal",
+                            Object.keys(this.imageDatas)[imageIndex]
+                        );
+                });
+                // マウスオーバー周り
+                // imageSprite.on("mouseover", () => {
+                //     TweenMax.to(imageSprite.scale, 0.3, {
+                //         x: IMAGE_LIST_SCALE - 0.05,
+                //         y: IMAGE_LIST_SCALE - 0.05,
+                //         ease: Sine.easeOut
+                //     });
+                // });
+                // imageSprite.on("mouseout", () => {
+                //     TweenMax.to(imageSprite.scale, 0.3, {
+                //         x: IMAGE_LIST_SCALE,
+                //         y: IMAGE_LIST_SCALE,
+                //         ease: Sine.easeOut
+                //     });
+                // });
 
                 container.addChild(imageSprite);
                 // 表示したスプライトを格納
                 this.setDisplayedImageSprites(imageSprite);
             }
 
-            // 大元コンテナに配置する作業
             container.position.x = containerX;
             container.position.y = containerY;
             index % CONTAINER_TURNING_POINT !== 0
@@ -226,7 +217,6 @@ class GalleryController extends EventEmitter2 {
         this.setWrapperEvent();
 
         this.application.stage.addChild(this.wrapperContainer);
-        this.clearLoadedImageData();
     }
 
     resizeView() {
@@ -377,21 +367,12 @@ class GalleryController extends EventEmitter2 {
     destroyView() {
         window.removeEventListener("resize", this.resizeFnc);
         this.application.destroy();
+        this.clearResources();
+        this.clearDisplayedImageSprites();
     }
 
     isInit() {
         return this.application !== null;
-    }
-
-    setCanvas(canvas) {
-        this.canvas = canvas;
-    }
-
-    setImageData(images) {
-        this.clearImageData();
-
-        this.imageDatas = { ...images };
-        this.totalImageCount = Object.values(this.imageDatas).length;
     }
 
     clearImageData() {
@@ -399,16 +380,20 @@ class GalleryController extends EventEmitter2 {
         this.totalImageCount = 0;
     }
 
-    getTotalImageCount() {
-        return this.totalImageCount;
+    setTotalImageCount(count) {
+        this.totalImageCount = count;
     }
 
-    setLoadedImageData(images) {
-        this.loadedImagesData.push(...images);
+    clearTotalImageCount() {
+        this.totalImageCount = 0;
     }
 
-    clearLoadedImageData() {
-        this.loadedImagesData.length = 0;
+    setResources(resource) {
+        this.resourcesData = resource;
+    }
+
+    clearResources() {
+        this.resourcesData.length = 0;
     }
 
     setDisplayedImageSprites(images) {
@@ -419,6 +404,3 @@ class GalleryController extends EventEmitter2 {
         this.displayedImageSprites.length = 0;
     }
 }
-
-const gallery = new GalleryController();
-export default gallery;
