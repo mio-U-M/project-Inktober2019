@@ -83,9 +83,9 @@ export default class GalleryController extends EventEmitter2 {
         await this.loadAssets();
         this.renderAssets();
 
-        // // 座標設定
-        // this.setEndpoint();
-        // this.emit("stageStandBy");
+        // 座標設定
+        this.setEndpoint();
+        this.emit("stageStandBy");
     }
 
     loadAssets() {
