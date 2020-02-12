@@ -7,7 +7,7 @@ import isPrime from "./lib/isPrime.js";
 import createDivisor from "./lib/createDivisor.js";
 
 const IMAGE_PADDING = 20;
-const IMAGE_LIST_SCALE = 0.8;
+const IMAGE_LIST_SCALE = 0.9;
 
 const MINIMUM_IMAGECONTANAR_LENGTH = 4;
 

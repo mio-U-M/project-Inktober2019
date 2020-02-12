@@ -1,7 +1,7 @@
 {
 	"meta": {
 		"image": "spritesheet.png",
-		"size": {"w":1800,"h":1800},
+		"size": {"w":2048,"h":2048},
 		"scale": "1"
 	},
 	"frames": {
