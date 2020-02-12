@@ -116,93 +116,95 @@ export default class GalleryController extends EventEmitter2 {
         // 折り返しポイントの計算
         this.turningPoint = this.checkTotalCount(this.totalImageCount);
 
-        // メインとなるコンテナの作成
         // 画像を詰めるコンテナを詰める作業
-        const mainContainer = new PIXI.Container();
         // 画像を詰めるコンテナの位置配置
         let singleX = 0;
         let singleY = 0;
 
-        for (let i = 0; i < this.displayImageCount; i++) {
-            const imageIndex = i % this.totalImageCount;
-            const imageSprite = new PIXI.Sprite(
-                this.loader.resources.spritesheet.textures[
-                    `thumb-day${imageIndex + 1}.jpg`
-                ]
-            );
+        for (let index = 1; index < CONTAINER_COUNT + 1; index++) {
+            // 初期化
+            singleX = 0;
+            singleY = 0;
+            // 画像を詰めるコンテナを詰める作業
+            const container = new PIXI.Container();
 
-            // 位置計算
-            if (i > 0) {
-                i % this.turningPoint !== 0
-                    ? (singleX +=
-                          imageSprite.width * IMAGE_LIST_SCALE + IMAGE_PADDING)
-                    : (singleX = 0);
-                if (i % this.turningPoint === 0)
-                    singleY +=
-                        imageSprite.height * IMAGE_LIST_SCALE + IMAGE_PADDING;
+            for (let i = 0; i < this.displayImageCount; i++) {
+                const imageIndex = i % this.totalImageCount;
+                const imageSprite = new PIXI.Sprite(
+                    this.loader.resources.spritesheet.textures[
+                        `thumb-day${imageIndex + 1}.jpg`
+                    ]
+                );
+
+                // 位置計算
+                if (i > 0) {
+                    i % this.turningPoint !== 0
+                        ? (singleX +=
+                              imageSprite.width * IMAGE_LIST_SCALE +
+                              IMAGE_PADDING)
+                        : (singleX = 0);
+                    if (i % this.turningPoint === 0)
+                        singleY +=
+                            imageSprite.height * IMAGE_LIST_SCALE +
+                            IMAGE_PADDING;
+                }
+                imageSprite.position.x = singleX;
+                imageSprite.position.y = singleY;
+                imageSprite.anchor.x = 0.5;
+                imageSprite.anchor.y = 0.5;
+                imageSprite.scale.x = IMAGE_LIST_SCALE;
+                imageSprite.scale.y = IMAGE_LIST_SCALE;
+
+                // 画像にイベントを付与
+                imageSprite.interactive = true;
+                imageSprite.buttonMode = true;
+                imageSprite.cursor = "pointer";
+                // クリック周り
+                imageSprite.on("mousedown", () => {
+                    this.isClickImageSplite = true;
+                });
+                imageSprite.on("mouseup", () => {
+                    if (this.isClickImageSplite)
+                        this.emit(
+                            "openModal",
+                            Object.keys(this.imageDatas)[imageIndex]
+                        );
+                });
+                // マウスオーバー周り
+                // imageSprite.on("mouseover", () => {
+                //     TweenMax.to(imageSprite.scale, 0.3, {
+                //         x: IMAGE_LIST_SCALE - 0.05,
+                //         y: IMAGE_LIST_SCALE - 0.05,
+                //         ease: Sine.easeOut
+                //     });
+                // });
+                // imageSprite.on("mouseout", () => {
+                //     TweenMax.to(imageSprite.scale, 0.3, {
+                //         x: IMAGE_LIST_SCALE,
+                //         y: IMAGE_LIST_SCALE,
+                //         ease: Sine.easeOut
+                //     });
+                // });
+
+                container.addChild(imageSprite);
+                // 表示したスプライトを格納
+                this.setDisplayedImageSprites(imageSprite);
             }
-            imageSprite.position.x = singleX;
-            imageSprite.position.y = singleY;
-            imageSprite.anchor.x = 0.5;
-            imageSprite.anchor.y = 0.5;
-            imageSprite.scale.x = IMAGE_LIST_SCALE;
-            imageSprite.scale.y = IMAGE_LIST_SCALE;
 
-            // 画像にイベントを付与
-            imageSprite.interactive = true;
-            imageSprite.buttonMode = true;
-            imageSprite.cursor = "pointer";
-            // クリック周り
-            imageSprite.on("mousedown", () => {
-                this.isClickImageSplite = true;
-            });
-            imageSprite.on("mouseup", () => {
-                if (this.isClickImageSplite)
-                    this.emit(
-                        "openModal",
-                        Object.keys(this.imageDatas)[imageIndex]
-                    );
-            });
-            // マウスオーバー周り
-            // imageSprite.on("mouseover", () => {
-            //     TweenMax.to(imageSprite.scale, 0.3, {
-            //         x: IMAGE_LIST_SCALE - 0.05,
-            //         y: IMAGE_LIST_SCALE - 0.05,
-            //         ease: Sine.easeOut
-            //     });
-            // });
-            // imageSprite.on("mouseout", () => {
-            //     TweenMax.to(imageSprite.scale, 0.3, {
-            //         x: IMAGE_LIST_SCALE,
-            //         y: IMAGE_LIST_SCALE,
-            //         ease: Sine.easeOut
-            //     });
-            // });
-
-            mainContainer.addChild(imageSprite);
-            // 表示したスプライトを格納
-            this.setDisplayedImageSprites(imageSprite);
-        }
-
-        for (let index = 1; index < 3; index++) {
-            // 大元コンテナに配置する作業
-            const displayContainer = new PIXI.Container();
-            displayContainer.addChild(mainContainer);
-
-            displayContainer.position.x = containerX;
-            displayContainer.position.y = containerY;
+            container.position.x = containerX;
+            container.position.y = containerY;
             index % CONTAINER_TURNING_POINT !== 0
-                ? (containerX += mainContainer.width + IMAGE_PADDING)
+                ? (containerX += container.width + IMAGE_PADDING)
                 : (containerX = 0);
             if (index % CONTAINER_TURNING_POINT === 0)
-                containerY += mainContainer.height + IMAGE_PADDING;
+                containerY += container.height + IMAGE_PADDING;
 
-            this.wrapperContainer.addChild(displayContainer);
+            this.wrapperContainer.addChild(container);
 
             // リピートのために戻す量を設定
             if (index === 1) {
-                this.backPosition.x = -mainContainer.width;
-                this.backPosition.y = -mainContainer.height;
+                this.backPosition.x = -container.width;
+                this.backPosition.y = -container.height;
             }
         }
 
