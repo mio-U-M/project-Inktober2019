@@ -2,12 +2,12 @@ import * as PIXI from "pixi.js";
 import { BASE_DIR } from "../constants.yml";
 import EventEmitter2 from "eventemitter2";
 import { max } from "lodash";
-import { TweenMax, Sine } from "gsap";
 import isPrime from "./lib/isPrime.js";
 import createDivisor from "./lib/createDivisor.js";
+import getUA from "./lib/getUA";
 
-const IMAGE_PADDING = 20;
-const IMAGE_LIST_SCALE = 0.9;
+const IMAGE_PADDING = getUA.isSP ? 12 : 20;
+const IMAGE_LIST_SCALE = getUA.isSP ? 0.5 : 0.85;
 
 const MINIMUM_IMAGECONTANAR_LENGTH = 4;
 
@@ -137,6 +137,7 @@ export default class GalleryController extends EventEmitter2 {
                 );
 
                 // 位置計算
+
                 if (i > 0) {
                     i % this.turningPoint !== 0
                         ? (singleX +=
@@ -238,6 +239,16 @@ export default class GalleryController extends EventEmitter2 {
             this.release(event);
         });
         this.wrapperContainer.on("mouseupoutside", event => {
+            this.release(event);
+        });
+        // touch
+        this.wrapperContainer.on("touchstart", event => {
+            this.press(event);
+        });
+        this.wrapperContainer.on("touchmove", event => {
+            this.drag(event);
+        });
+        this.wrapperContainer.on("touchend", event => {
             this.release(event);
         });
     }
