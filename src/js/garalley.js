@@ -240,6 +240,16 @@ export default class GalleryController extends EventEmitter2 {
         this.wrapperContainer.on("mouseupoutside", event => {
             this.release(event);
         });
+        // touch
+        this.wrapperContainer.on("touchstart", event => {
+            this.press(event);
+        });
+        this.wrapperContainer.on("touchmove", event => {
+            this.drag(event);
+        });
+        this.wrapperContainer.on("touchend", event => {
+            this.release(event);
+        });
     }
 
     press(event) {
